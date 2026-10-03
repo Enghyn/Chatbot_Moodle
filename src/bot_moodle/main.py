@@ -61,7 +61,7 @@ def tick(dry_run: bool = False, dest_jid: str | None = None) -> dict:
     for name, r in results.items():
         if not r.ok:
             logger.warning("campus %s fallido: %s (se continua con el otro)", name, r.error)
-    sender = EvolutionSender(cfg.evo.base_url, cfg.evo.api_key, dest_jid or cfg.evo.group_jid)
+    sender = EvolutionSender(cfg.evo.base_url, cfg.evo.api_key, dest_jid or cfg.evo.group_jid, cfg.evo.instance)
     store = StateStore(state_path())
     targets = build_targets(sessions, cfg)
     now = datetime.now()

@@ -19,6 +19,7 @@ class EvoConfig:
     base_url: str
     api_key: str
     group_jid: str
+    instance: str = "bot-moodle"
     test_group_jid: str = ""
 
 
@@ -59,6 +60,7 @@ def from_env() -> AppConfig:
             base_url=os.environ.get("EVO_BASE_URL", "http://localhost:8080"),
             api_key=_req("EVO_API_KEY"),
             group_jid=_req("GROUP_JID"),
+            instance=os.environ.get("EVO_INSTANCE", "bot-moodle"),
             test_group_jid=os.environ.get("TEST_GROUP_JID", ""),
         ),
     )

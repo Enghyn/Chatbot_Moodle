@@ -33,7 +33,11 @@ class _FakeHttp:
 
 def _sender(http):
     return EvolutionSender(
-        base_url="http://evo:8080", api_key="KEY", group_jid="123@g.us", http=http
+        base_url="http://evo:8080",
+        api_key="KEY",
+        group_jid="123@g.us",
+        instance="bot-moodle",
+        http=http,
     )
 
 
@@ -43,7 +47,7 @@ def test_envio_exitoso_registra_un_post_con_jid_y_texto():
     assert isinstance(result, SendResult)
     assert result.ok is True
     assert len(http.posts) == 1
-    assert http.posts[0]["url"].endswith("/message/sendText")
+    assert http.posts[0]["url"].endswith("/message/sendText/bot-moodle")
     assert http.posts[0]["json"]["number"] == "123@g.us"
     assert "Comisión 4" in http.posts[0]["json"]["text"]
 

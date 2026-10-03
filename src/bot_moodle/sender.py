@@ -16,12 +16,13 @@ class SendResult:
 
 
 class EvolutionSender:
-    """POST /message/sendText con JID + texto. Ante sesion caida reporta y no reintenta."""
+    """POST /message/sendText/{instance} con JID + texto. Ante sesion caida reporta y no reintenta."""
 
-    def __init__(self, base_url: str, api_key: str, group_jid: str, http: Any = None):
+    def __init__(self, base_url: str, api_key: str, group_jid: str, instance: str, http: Any = None):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.group_jid = group_jid
+        self.instance = instance
         self._http = http
 
     def _http_client(self) -> Any:
@@ -35,7 +36,7 @@ class EvolutionSender:
         dest = jid or self.group_jid
         try:
             resp = self._http_client().post(
-                self.base_url + "/message/sendText",
+                self.base_url + f"/message/sendText/{self.instance}",
                 headers={"apikey": self.api_key, "Content-Type": "application/json"},
                 json={"number": dest, "text": text},
                 timeout=timeout,
