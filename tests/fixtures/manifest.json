@@ -1,0 +1,58 @@
+{
+  "tema_ingles_class5.html": {
+    "curso": "Inglés",
+    "seccion": "Class 5",
+    "tiene_fecha": true,
+    "origen": "Tema_ Class 5 _ Inglés 2- 2026 - Buccella-Farías _ Campus.html",
+    "notas": "Vista Tema con 1 Questionnaire #5 (quiz id=52527); activity-dates Abrió/Cierra 2-nov-2026."
+  },
+  "tema_bd2_practica.html": {
+    "curso": "BD2",
+    "seccion": "Práctica",
+    "tiene_fecha": false,
+    "origen": "Tema_ Práctica 💻 _ Bases de Datos II _ Campus.html",
+    "notas": "Vista Tema con 5 activities incl. TP-U4 assign id=56812 y caso Yácomo isrestricted sin link."
+  },
+  "tema_metodologia_practica.html": {
+    "curso": "Metodología",
+    "seccion": "Práctica",
+    "tiene_fecha": false,
+    "origen": "Tema_ Práctica 💻 _ Metodología de Sistemas _ CVT.html",
+    "notas": "Vista Tema con Entrega-U6 assign id=1581 (Metodología queda fuera de alcance)."
+  },
+  "tema_prog3_practica.html": {
+    "curso": "Programación",
+    "seccion": "Práctica",
+    "tiene_fecha": false,
+    "origen": "Tema_ Práctica 💻 _ Programacion 3-2026 Agosto _ CVT.html",
+    "notas": "Vista Tema con FastApi assign id=1384 (sin fecha en vista sección)."
+  },
+  "assign_bd2_tp_u4_56812.html": {
+    "curso": "BD2",
+    "seccion": "Práctica",
+    "tiene_fecha": false,
+    "origen": "Bases de Datos II_ Trabajo Práctico Unidad 4 (Semana 8) _ Campus.html",
+    "notas": "Detalle assign id=56812; activity-dates vacío; breadcrumb BD2 > Práctica."
+  },
+  "assign_met_u6_1581.html": {
+    "curso": "Metodología",
+    "seccion": "Práctica",
+    "tiene_fecha": false,
+    "origen": "met-sis_ Entrega – Trabajo Práctico Unidad 6 _ CVT.html",
+    "notas": "Detalle assign id=1581; activity-dates vacío."
+  },
+  "assign_fastapi_1384.html": {
+    "curso": "Programación",
+    "seccion": "Práctica",
+    "tiene_fecha": false,
+    "origen": "PROG3A26_ Entrega trabajo practico FastApi _ CVT.html",
+    "notas": "Detalle assign id=1384; activity-dates vacío."
+  },
+  "assign_uml_1457.html": {
+    "curso": "Programación",
+    "seccion": "Actividades",
+    "tiene_fecha": true,
+    "origen": "PROG3A26_ Subir trabajo de UML a Java _ CVT.html",
+    "notas": "Detalle assign id=1457 (Com1, exclusion list); activity-dates Apertura/Cierre 25-ago-2026."
+  }
+}

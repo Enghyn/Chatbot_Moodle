@@ -1,0 +1,21 @@
+services:
+  evolution:
+    # VPS: fijar digest concreto tras el primer pull (p. ej. evolution-api:v2.2.3)
+    image: atendai/evolution-api:v2.2.3
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"  # puerto interno; exponer via reverse proxy si hace falta
+    environment:
+      AUTHENTICATION_API_KEY: ${EVO_API_KEY}
+    volumes:
+      - evolution_sesion:/evolution/store
+      - evolution_instancias:/evolution/instances
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  evolution_sesion:
+  evolution_instancias:
