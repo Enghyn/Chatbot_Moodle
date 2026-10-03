@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from datetime import datetime
 
 from bot_moodle.config import from_env
@@ -48,6 +49,11 @@ def build_targets(sessions: dict, cfg) -> list[dict]:
     return targets
 
 
+def state_path() -> str:
+    """Ruta de estado.json; configurable para montar un volumen en Docker."""
+    return os.environ.get("ESTADO_PATH", "estado.json")
+
+
 def tick(dry_run: bool = False, dest_jid: str | None = None) -> dict:
     cfg = from_env()
     results = login_all(cfg.campuses)
@@ -56,7 +62,7 @@ def tick(dry_run: bool = False, dest_jid: str | None = None) -> dict:
         if not r.ok:
             logger.warning("campus %s fallido: %s (se continua con el otro)", name, r.error)
     sender = EvolutionSender(cfg.evo.base_url, cfg.evo.api_key, dest_jid or cfg.evo.group_jid)
-    store = StateStore("estado.json")
+    store = StateStore(state_path())
     targets = build_targets(sessions, cfg)
     now = datetime.now()
     return run_cycle(
@@ -79,8 +85,6 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.send_test:
-            import os
-
             dest = os.environ.get("TEST_GROUP_JID", "")
             res = tick(dry_run=False, dest_jid=dest)
             print(res["kind"], "enviado:", res["sent"])

@@ -1,0 +1,17 @@
+.env
+estado.json
+__pycache__/
+*.pyc
+tests/
+.pytest_cache/
+.git/
+.github/
+*.html
+*_files/
+docs/
+knowledge-base/
+openspec/
+.atl/
+.opencode/
+.agents/
+node_modules/
