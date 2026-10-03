@@ -14,12 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
 
 WORKDIR /app
 
-# Deps primero para aprovechar cache de capas
+# Código primero: setuptools lo necesita presente para buildear el wheel
+# (se pierde algo de cache de capas a cambio de un build que funciona)
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir .
-
-# Código (sin .env, sin estado.json, sin tests: ver .dockerignore)
 COPY src/ ./src/
+RUN pip install --no-cache-dir .
 
 # Se corre como root a proposito: Easypanel monta los volumenes como root y
 # el proceso debe poder escribir estado.json en /data (bot personal, single-tenant).
