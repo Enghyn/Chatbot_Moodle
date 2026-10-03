@@ -21,9 +21,9 @@ RUN pip install --no-cache-dir .
 # Código (sin .env, sin estado.json, sin tests: ver .dockerignore)
 COPY src/ ./src/
 
-# Usuario no-root + directorio persistente para estado.json (montar volumen Easypanel en /data)
-RUN useradd -m -u 10000 appuser && mkdir -p /data && chown -R appuser:appuser /app /data
-USER appuser
+# Se corre como root a proposito: Easypanel monta los volumenes como root y
+# el proceso debe poder escribir estado.json en /data (bot personal, single-tenant).
+RUN mkdir -p /data
 
 ENV ESTADO_PATH=/data/estado.json
 
