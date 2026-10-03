@@ -78,7 +78,7 @@ def _blocks(
         for sec in g["sections"]:
             out.append(sec["title"])
             for ap in sec["apartados"]:
-                if ap["title"]:
+                if ap["title"] and ap["title"].strip().lower() != sec["title"].strip().lower():
                     out.append(ap["title"])
                 for item in sorted(ap["items"], key=lambda c: c["due"]):
                     if item["id"] in new_ids:
