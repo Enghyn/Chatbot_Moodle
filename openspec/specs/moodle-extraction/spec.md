@@ -70,7 +70,7 @@ El sistema SHALL aplicar filtro de comisión solo en BD2 y Programación; Inglé
 - **THEN** se incluye como general, salvo que su ID/título figure en la lista de exclusión explícita (ej. UML id=1457 de Com1)
 
 ### Requirement: Agrupación y omisión de vacíos
-El sistema SHALL agrupar candidatas por Curso > Sección-verbatim > Apartado-verbatim y SHALL omitir apartados sin entregas y secciones sin apartados con entregas.
+El sistema SHALL derivar por actividad su unidad padre (la tab anterior más cercana en la navegación ordenada cuyo título NO sea un apartado genérico: `Práctica`, `Actividades`, `Inicio`, `Autoevaluación`, `Encuesta...`) y SHALL agrupar candidatas por Curso > `Unidad - Apartado`, omitiendo grupos sin entregas.
 
 #### Scenario: Apartado vacío
 - **WHEN** un apartado no tiene candidatas en ventana
@@ -79,6 +79,10 @@ El sistema SHALL agrupar candidatas por Curso > Sección-verbatim > Apartado-ver
 #### Scenario: Nombres verbatim
 - **WHEN** la sección es `UNIDAD 1: FASTAPI` duplicada o `Actividades 🚀` vs `Práctica 💻`
 - **THEN** se muestra tal cual, sin normalizar ni reordenar por número
+
+#### Scenario: Unidad derivada de tabs
+- **WHEN** una entrega vive en la sección `Práctica` precedida por la tab de unidad `CSS`
+- **THEN** su clave de agrupación es `CSS - Práctica` usando el título corto de la tab
 
 #### Scenario: Semana sin vencimientos
 - **WHEN** ningún curso tiene candidatas en ventana
