@@ -17,6 +17,10 @@
 
 ## Resueltas (registro)
 
+- **Alias de profesores comisión 4** → Sergio Neira (BD), Buccella-Farías (Inglés), Giuliano Espejo y Matias Torres (Prog). Implementado en `comision.py`: mención "prof" en contexto de comisión con apellido propio incluye, con apellido ajeno excluye (`tests/test_comision_profesores.py`, 7 tests).
+
+## Resueltas (registro)
+
 - **Alias `Cierra:` vs `Cierre:`** → se mantiene la normalización a `Cierra:` (RN-FMT-02).
 - **Links en mensajes** → no se agregan nunca; mensajes siempre informativos (RN-FMT-03, DD-06).
 - **Detección de cambios de fecha** → SÍ entra en alcance: re-aviso en 8:00/20:00 con marca `fecha de entrega modificada` (RN-URG-04, DD-08). Pendiente: change nuevo para specs/design/tasks (el archivado no se toca).
