@@ -16,7 +16,7 @@ from datetime import datetime
 from bot_moodle.config import from_env
 from bot_moodle.cycle import run_cycle
 from bot_moodle.scheduler import build_scheduler
-from bot_moodle.scrape import collect_candidates, discover_sections
+from bot_moodle.scrape import collect_candidates, discover_sections, discover_units
 from bot_moodle.sender import EvolutionSender
 from bot_moodle.session import login_all
 from bot_moodle.state import StateStore
@@ -44,8 +44,13 @@ def build_targets(sessions: dict, cfg) -> list[dict]:
         except Exception as exc:
             logger.warning("no se pudieron listar secciones de %s: %s", t["course"], exc)
             continue
+        try:
+            units = discover_units(sess, base[t["campus"]], t["course_id"])
+        except Exception as exc:
+            logger.warning("sin tabs de unidad en %s: %s (encabezado sin padre)", t["course"], exc)
+            units = []
 
-        targets.append({**t, "base_url": base[t["campus"]], "sections": secs})
+        targets.append({**t, "base_url": base[t["campus"]], "sections": secs, "units": units})
     return targets
 
 

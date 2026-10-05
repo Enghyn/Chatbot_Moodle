@@ -1,9 +1,9 @@
-"""7.1: agrupacion Curso > Seccion-verbatim > Apartado-verbatim, omite vacios."""
+"""7.1 + unit-section-headers: agrupacion Curso > `Unidad - Apartado`, omite vacios."""
 
 from bot_moodle.grouping import group_candidates
 
 
-def _c(id_, course, section, apartado, idx=0):
+def _c(id_, course, section, apartado, idx=0, unidad_padre=None):
     from datetime import datetime
 
     return {
@@ -13,6 +13,7 @@ def _c(id_, course, section, apartado, idx=0):
         "course": course,
         "section": section,
         "apartado": apartado,
+        "unidad_padre": unidad_padre,
         "section_index": idx,
     }
 
@@ -20,19 +21,22 @@ def _c(id_, course, section, apartado, idx=0):
 def test_apartado_sin_candidatas_no_muestra_encabezado():
     cands = [_c("1", "BD2", "Unidad 4", "Práctica 💻")]
     groups = group_candidates(cands)
-    apartados = [a["title"] for s in groups[0]["sections"] for a in s["apartados"]]
-    assert apartados == ["Práctica 💻"]
-    assert "Actividades 🧩" not in apartados
+    titulos = [g["title"] for g in groups[0]["groups"]]
+    assert titulos == ["Práctica 💻"]  # sin padre: apartado solo, como antes
+    assert "Actividades 🧩" not in titulos
 
 
-def test_seccion_duplicada_se_muestra_tal_cual():
+def test_mismo_titulo_distinto_indice_sin_padre_colapsa_verbatim():
+    # Sin unidad_padre la clave cae a (seccion, apartado): mismo titulo
+    # verbatim comparte grupo en vez de repetirse por indice.
     cands = [
-        _c("1", "Programación", "UNIDAD 1: FASTAPI", "Práctica 💻", idx=2),
-        _c("2", "Programación", "UNIDAD 1: FASTAPI", "Práctica 💻", idx=8),
+        _c("1", "Programación", "Práctica 💻", "Práctica 💻", idx=2),
+        _c("2", "Programación", "Práctica 💻", "Práctica 💻", idx=8),
     ]
     groups = group_candidates(cands)
-    titulos = [s["title"] for s in groups[0]["sections"]]
-    assert titulos == ["UNIDAD 1: FASTAPI", "UNIDAD 1: FASTAPI"]
+    titulos = [g["title"] for g in groups[0]["groups"]]
+    assert titulos == ["Práctica 💻"]
+    assert len(groups[0]["groups"][0]["items"]) == 2
 
 
 def test_entrada_vacia_devuelve_vacio():

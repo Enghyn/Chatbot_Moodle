@@ -163,7 +163,6 @@ def test_golden_modificada_convive_con_nueva_y_digest():
         "*Comisión 4 - Actualización: 2 entrega(s) actualizada(s)*\n"
         "\n"
         "*Programación*\n"
-        "UNIDAD 1: FASTAPI\n"
         "Práctica 💻\n"
         "- TP nuevo 2prog4 (Cierra: jue 8 oct, 23:59) 🆕 NUEVA\n"
         "- Entrega trabajo practico FastApi (Cierra: vie 9 oct, 23:59) 🔄 fecha de entrega modificada"
@@ -183,7 +182,6 @@ def test_golden_solo_modificada_sin_nuevas():
         "*Comisión 4 - Actualización: 1 entrega(s) actualizada(s)*\n"
         "\n"
         "*Programación*\n"
-        "UNIDAD 1: FASTAPI\n"
         "Práctica 💻\n"
         "- Entrega trabajo practico FastApi (Cierra: vie 9 oct, 23:59) 🔄 fecha de entrega modificada"
     )

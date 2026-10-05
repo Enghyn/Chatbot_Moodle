@@ -75,12 +75,9 @@ def _blocks(
     out: list[str] = []
     for g in groups:
         out.append(f"*{g['course']}*")
-        for sec in g["sections"]:
-            out.append(sec["title"])
-            for ap in sec["apartados"]:
-                if ap["title"] and ap["title"].strip().lower() != sec["title"].strip().lower():
-                    out.append(ap["title"])
-                for item in sorted(ap["items"], key=lambda c: c["due"]):
+        for grp in g["groups"]:
+            out.append(grp["title"])
+            for item in sorted(grp["items"], key=lambda c: c["due"]):
                     if item["id"] in new_ids:
                         marca = " 🆕 NUEVA"
                     elif item["id"] in changed_ids:
