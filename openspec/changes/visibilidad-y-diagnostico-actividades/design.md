@@ -46,7 +46,7 @@ Orden en `extract_activities`:
 **Verificación disponible**: el fixture real de la sección `42` tiene `data-id="1833"` y `id="module-1833"`; el anchor del courseindex apunta a `mod/resource/view.php?id=<cmid>` (nunca a `course/view.php`), así que la fuente 1 resuelve sin ambigüedad.
 
 ### D2 — Descartes diagnosticables: un warning por actividad, con techo de ruido y resumen agregado
-Helper único en `scrape.py` (p. ej. `_descarte(act, sec, motivo)`) que emite **un** `warning` por actividad descartada con `id`, `title`, `modtype`, `course_id`, `section index` y `motivo` (`sin_fecha`, `sin_id`, `detalle_fallo`). Se usa en cada `continue`. Cuando los descartes de una corrida superan un umbral (50), el detalle uno por uno se sustituye por un resumen con el conteo por motivo.
+Helper único en `scrape.py` (p. ej. `_descarte(act, sec, motivo)`) que emite **un** `warning` por actividad descartada con `id`, `title`, `modtype`, `course_id`, `section index` y `motivo` (`sin_fecha`, `sin_id`, `detalle_fallo`). Se usa en cada `continue`. Cuando los descartes de una corrida superan un umbral (50), el detalle se corta en las primeras 50 líneas y el resto solo se cuenta; los totales por motivo viajan igual en el resumen de cierre (D3), que además expone `descartes_detalle_omitido=N` cuando hubo truncamiento. El techo de ruido es exclusivamente del detalle, **no** del cierre.
 
 **Por qué**: el descarte silencioso es la causa raíz que hizo esta investigación costosa — diagnosticar requirió bajar HTML a mano, correr el código local, traer el log del VPS y leer `estado.json` a pulso. Hacerlo diagnosticable es en sí mismo el entregable.
 
@@ -58,6 +58,8 @@ Helper único en `scrape.py` (p. ej. `_descarte(act, sec, motivo)`) que emite **
 
 ### D3 — Resumen de cierre de corrida, con duración explícita
 `collect_candidates` cierra con un único `info` por corrida: `secciones=`, `actividades=`, `candidatas=`, `descartes_por_motivo=`, `duracion_s=`. La duración se expone porque **cada corrida actual tarda ~93 s** para 3 cursos × ~44 secciones: es un margen ajustado y hoy no hay forma de saber si una corrida se está acercando al timeout o si se está degradando el número de actividades encontradas.
+
+**Restricción de implementación (aprendida en producción, 2026-10-27)**: el cierre se interpola con f-string y va **siempre en `INFO`**. La primera versión pasaba una tupla `(fmt, *args)` a un `%s` en la rama sobre-umbral: el log salió como `WARNING descarte (resumen agregado...) ('corrida: secciones=%d ...', 91, 163, ...)`, ilegible y no parseable. Un cierre de corrida que no se puede leer no es diagnóstico. Los argumentos diferidos de logging quedan prohibidos en esta función.
 
 **Por qué**: sin este resumen, ni un descarte ni un alza de duración son detectables en producción. Es la mitad "preventiva" del mismo hallazgo que D2 cubre "reactiva".
 

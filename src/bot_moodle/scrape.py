@@ -150,17 +150,23 @@ def collect_candidates(sessions: dict[str, Any], targets: list[dict], timeout: i
 
 def _resumen_cierre(*, secciones: int, actividades: int, candidatas: int,
                     descartes: _RegistroDescartes, duracion_s: float) -> None:
-    """D3: un unico resumen por corrida. Sube a warning si hubo inundacion."""
-    msg = (
-        "corrida: secciones=%d actividades=%d candidatas=%d "
-        "descartes_por_motivo=%s duracion_s=%.1f",
-        secciones, actividades, candidatas, descartes.resumen_texto(), duracion_s,
+    """D3: un unico resumen de cierre por corrida, siempre en INFO.
+
+    Se interpola con f-string (no con argumentos diferidos) para que no exista
+    forma de volver a imprimir un format string crudo. El techo de ruido de D2
+    viaja como campo `descartes_detalle_omitido`, no como logger.warning aparte:
+    el cierre es informacion operativa, y el WARNING queda reservado a los
+    descartes individuales.
+    """
+    omitido = max(0, descartes.total - descartes.umbral)
+    linea = (
+        f"corrida: secciones={secciones} actividades={actividades} "
+        f"candidatas={candidatas} descartes_por_motivo={descartes.resumen_texto()} "
+        f"duracion_s={duracion_s:.1f}"
     )
-    if descartes.total > descartes.umbral:
-        logger.warning("descarte (resumen agregado, detalle omitido por umbral=%d) %s",
-                       descartes.umbral, msg)
-    else:
-        logger.info(msg[0], *msg[1:])
+    if omitido:
+        linea += f" descartes_detalle_omitido={omitido}"
+    logger.info(linea)
 
 
 def _course_html(session: Any, base_url: str, course_id: str, timeout: int = 20) -> str:

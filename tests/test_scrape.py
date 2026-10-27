@@ -152,27 +152,38 @@ def test_los_motivos_de_descarte_son_distinguibles(caplog):
     assert motivos == {"sin_id", "sin_fecha"}
 
 
-def test_mas_de_50_descartes_emiten_resumen_agregado_y_no_el_detalle(caplog):
-    n = 60
+def _seccion_60_sin_fecha(n=60):
+    """Vista de seccion sintetica: n activities con identidad pero sin fecha.
+
+    El detalle servido (`assign_bd2_tp_u4_56812.html`) no trae activity-dates,
+    asi que las n actividades se descartan con motivo `sin_fecha`."""
     wrappers = "".join(
         f'<li class="activity-wrapper assign modtype_assign" id="module-{9000+i}" data-id="{9000+i}">'
         f'<div data-activityname="Entrega {i}"></div>'
         f'<a href="https://cv/mod/assign/view.php?id={9000+i}">ir</a></li>'
         for i in range(n)
     )
-    seccion = f"<html><body><ul>{wrappers}</ul></body></html>"
-    with caplog.at_level(logging.WARNING):
+    return f"<html><body><ul>{wrappers}</ul></body></html>"
+
+
+def test_mas_de_50_descartes_cortan_el_detalle_en_50_y_el_cierre_refleja_el_total_real(caplog):
+    """El techo de ruido (D2) corta el detalle por item; el total real vive en el cierre (D3)."""
+    n = 60
+    with caplog.at_level(logging.INFO):
         cands = collect_candidates(
-            sessions={"C2": _FixturesSession(seccion, _fix("assign_bd2_tp_u4_56812.html"))},
+            sessions={"C2": _FixturesSession(_seccion_60_sin_fecha(n),
+                                             _fix("assign_bd2_tp_u4_56812.html"))},
             targets=_target(),
         )
     assert cands == []
     warns = [r.getMessage() for r in _warnings(caplog)]
-    agregado = [m for m in warns if "resumen agregado" in m]
-    assert len(agregado) == 1, f"un solo resumen agregado: {agregado}"
-    assert "sin_fecha" in agregado[0] and str(n) in agregado[0]
-    detalle = [m for m in warns if "sin_fecha" in m and "resumen agregado" not in m]
+    detalle = [m for m in warns if "motivo=sin_fecha" in m]
     assert len(detalle) == 50, f"el detalle se corta en el umbral (50), no {len(detalle)}"
+    cierres = [r.getMessage() for r in caplog.records
+               if r.levelname == "INFO" and "corrida:" in r.getMessage()]
+    assert len(cierres) == 1, f"un unico cierre por corrida: {cierres}"
+    assert "descartes_por_motivo={'sin_fecha': 60}" in cierres[0], \
+        f"el cierre debe reflejar el total real ({n}), no el techo: {cierres[0]}"
 
 
 def test_el_warning_de_descarte_no_expone_secretos(caplog):
@@ -257,4 +268,70 @@ def test_una_corrida_con_candidatas_no_emite_warning_de_resumen_agregado(caplog)
     assert [r.getMessage() for r in _warnings(caplog)] == []
     m = [r.getMessage() for r in caplog.records if "corrida:" in r.getMessage()][0]
     assert "candidatas=1" in m and "descartes_por_motivo={}" in m
+
+
+def test_sobre_el_umbral_el_cierre_es_info_totalmente_interpolado_con_el_truncamiento(caplog):
+    """Regresion de produccion 2026-10-27: el cierre sobre-umbral salia como WARNING
+    con el format string crudo y la tupla de args en repr."""
+    with caplog.at_level(logging.INFO):
+        cands = collect_candidates(
+            sessions={"C2": _FixturesSession(_seccion_60_sin_fecha(60),
+                                             _fix("assign_bd2_tp_u4_56812.html"))},
+            targets=_target(),
+        )
+    assert cands == []
+    cierres = [r for r in caplog.records if "corrida:" in r.getMessage()]
+    assert len(cierres) == 1, f"un unico cierre por corrida: {[r.getMessage() for r in cierres]}"
+    rec = cierres[0]
+    assert rec.levelname == "INFO", f"el cierre es informacion operativa, no anomalia: {rec.levelname}"
+    m = rec.getMessage()
+    for placeholder in ("%d", "%s", "%.1f"):
+        assert placeholder not in m, f"placeholder sin interpolar en el cierre: {m}"
+    assert "secciones=1" in m, f"secciones sin interpolar: {m}"
+    assert "actividades=60" in m, f"actividades sin interpolar: {m}"
+    assert "candidatas=0" in m, f"candidatas sin interpolar: {m}"
+    assert "descartes_por_motivo={'sin_fecha': 60}" in m, f"resumen de motivos alterado: {m}"
+    assert "descartes_detalle_omitido=" in m, f"falta el campo de truncamiento: {m}"
+    assert "descartes_detalle_omitido=10" in m, f"60 descartes - umbral 50 = 10 omitidos: {m}"
+
+
+def test_sobre_el_umbral_la_duracion_del_cierre_es_parseable_como_float(caplog):
+    """Este es el test que habria fallado con el log real de produccion."""
+    with caplog.at_level(logging.INFO):
+        collect_candidates(
+            sessions={"C2": _FixturesSession(_seccion_60_sin_fecha(60),
+                                             _fix("assign_bd2_tp_u4_56812.html"))},
+            targets=_target(),
+        )
+    m = [r.getMessage() for r in caplog.records if "corrida:" in r.getMessage()][0]
+    dur = float(m.split("duracion_s=")[1].split()[0])
+    assert dur >= 0.0, f"duracion no parseable o negativa: {dur}"
+
+
+def test_sobre_el_umbral_no_se_emite_el_warning_de_resumen_agregado(caplog):
+    """El techo de ruido de D2 ya no duplica el cierre con un WARNING aparte."""
+    with caplog.at_level(logging.WARNING):
+        collect_candidates(
+            sessions={"C2": _FixturesSession(_seccion_60_sin_fecha(60),
+                                             _fix("assign_bd2_tp_u4_56812.html"))},
+            targets=_target(),
+        )
+    warns = [r.getMessage() for r in _warnings(caplog)]
+    agregados = [m for m in warns if "resumen agregado" in m]
+    assert agregados == [], f"el resumen agregado ya no es un WARNING separado: {agregados}"
+    detalle = [m for m in warns if "motivo=sin_fecha" in m]
+    assert len(detalle) == 50, f"el detalle por item sigue cortandose en 50: {len(detalle)}"
+
+
+def test_bajo_el_umbral_el_cierre_no_lleva_el_campo_de_truncamiento(caplog):
+    """Sin truncamiento no se inventa el campo: BD2 deja 5 descartes, muy por debajo."""
+    with caplog.at_level(logging.INFO):
+        collect_candidates(
+            sessions={"C2": _FixturesSession(
+                _fix("tema_bd2_practica.html"), _fix("assign_bd2_tp_u4_56812.html"))},
+            targets=_target(course="BD2", course_id="723"),
+        )
+    m = [r.getMessage() for r in caplog.records if "corrida:" in r.getMessage()][0]
+    assert "descartes_por_motivo={'sin_fecha': 3, 'sin_id': 2}" in m
+    assert "descartes_detalle_omitido" not in m, f"bajo el umbral no hay nada omitido: {m}"
 
