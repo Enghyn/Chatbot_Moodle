@@ -5,10 +5,14 @@ Cada regla tiene código único para trazabilidad. Fuente: specs en `openspec/sp
 ## Dominio: Extracción (RN-EXT)
 
 - **RN-EXT-01**: Solo son candidatas actividades CON link; las `isrestricted` sin link (ej. agrupamiento Yácomo) se excluyen — porque Moodle ya las bloquea para el usuario.
-- **RN-EXT-02**: Solo cuentan entregas con fecha de cierre parseable en `div[data-region=activity-dates]`; sin fecha se descartan en silencio.
+- **RN-EXT-02**: Solo cuentan entregas con fecha de cierre parseable en `div[data-region=activity-dates]`; sin fecha se descartan (default NO-notificar) **pero el descarte queda registrado en un `warning`** con id, título, modtype, curso, sección y motivo (`sin_fecha`, `sin_id`, `detalle_fallo`, `seccion_fallo`, `sin_sesion`). El descarte nunca es silencioso. Cada corrida cierra con un resumen: secciones, actividades, candidatas, descartes por motivo y duración.
 - **RN-EXT-03**: Alias de cierre: `Cierre|Cierra|Vence|Fecha.*entrega|Fecha límite`; alias de inicio (`Apertura|Abrió|Abre`) se ignoran para vencimiento.
-- **RN-EXT-04**: Se recorren TODAS las secciones (índice drawer + tabs); la vista `Tema_&section=` de una sección no basta.
+- **RN-EXT-04**: Se recorren TODAS las secciones (índice drawer + tabs); la vista `Tema_&section=` de una sección no basta. El nombre de la tab no acota el alcance: dos secciones con el mismo título se recorren ambas.
 - **RN-EXT-05**: Nombres de sección y apartado siempre verbatim (con emojis); Programación no se ordena ni normaliza por número.
+
+### Identidad de la actividad
+
+- **RN-EXT-06**: El identificador de una actividad es su **course module id**, tomado por prioridad de fuentes del DOM: (1) `data-id` / `id="module-<N>"` del `li.activity-wrapper`, (2) `mod/*/view.php?id=<N>` de un link del contenedor, (3) ancla `course/view.php?...#module-<N>`. **Nunca** del parámetro `id` de una URL `course/view.php`, que es el id del curso. Sin ninguna fuente válida la actividad se descarta con motivo `sin_id` y queda registrada.
 
 ## Dominio: Ventana temporal (RN-TMP)
 

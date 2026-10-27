@@ -38,3 +38,9 @@ def test_alias_fecha_de_entrega_y_abre():
     )
     assert parsed["start"] == datetime(2026, 10, 5, 8, 0)
     assert parsed["due"] == datetime(2026, 10, 10, 23, 59)
+
+
+def test_regresion_cm_1833_assign_real():
+    """Regresion: el camino de mod/assign no cambia (fixture real del cm 1833)."""
+    parsed = parse_activity_dates((FIX / "assign_libreria_1833.html").read_text(encoding="utf-8"))
+    assert parsed == {"start": datetime(2026, 10, 15, 0, 0), "due": datetime(2026, 10, 18, 23, 59)}

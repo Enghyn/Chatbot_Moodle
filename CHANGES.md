@@ -32,6 +32,7 @@ C-01 foundation-setup
                     └── C-08 whatsapp-delivery          ← paralelo con C-05/C-07
                           └── C-09 cycle-scheduler      ← + C-05 + C-06 + C-07 + C-08
                                 └── C-10 deploy-go-live
+                                       └── C-11 visibilidad-y-diagnostico-actividades
 ```
 
 ### Paralelismo por fase
@@ -273,3 +274,23 @@ Paso │ Agente A (Extracción)      │ Agente B (Lógica dominio)       │ Ag
   - `knowledge-base/10_preguntas_abiertas.md` (preguntas de alta prioridad + IN-01)
   - `knowledge-base/03_actores_y_roles.md` (operador y superficie expuesta)
   - `knowledge-base/01_vision_y_objetivos.md` §Métricas de éxito
+
+## FASE 5 — Post-go-live: visibilidad y diagnóstico
+
+### [C-11] `visibilidad-y-diagnostico-actividades`
+- **Estado**: `[ ]` implementado (en `/opsx:apply`, pendiente archivar)
+- **Origen**: el aviso reportado como faltante (cm `1833`) resultó ser un **falso positivo** — el bot sí notificó. El diagnóstico con ejecución real contra el HTML real lo cerró. De ahí quedan 3 causas raíz reales, todas de observabilidad/identidad.
+- **Scope**:
+  - **D1 — Identidad**: el cmid sale de la fuente autoritativa del DOM (`data-id` / `id="module-N"` → `mod/*/view.php?id=` → ancla `#module-N` → descarte `sin_id`). **Nunca** del `id` de `course/view.php`, que es el del curso (bug: registraba una actividad espuria con `id="14"`).
+  - **D2 — Descarte diagnosticable**: cada descarte emite un `warning` con motivo (`sin_fecha`, `sin_id`, `detalle_fallo`, `seccion_fallo`, `sin_sesion`), id, título, modtype, curso y sección. Techo de ruido: >50 descartes → resumen agregado por motivo. Nunca secretos (RN-GLB-02).
+  - **D3 — Resumen de cierre**: un `info` por corrida con `secciones=`, `actividades=`, `candidatas=`, `descartes_por_motivo=`, `duracion_s=` (las corridas duran ~93 s y eso era invisible).
+  - **D4 — retirada**: la cobertura de páginas `mod/resource` se descartó (sus `cm 1834`/`1835` son PDF y markdown: `view.php` es pantalla de descarga, no hay cuerpo con fechas). Sin código ni fixture especulativo.
+  - **Fixtures reales**: vista de la sección `42` y detalle del `cm 1833`, con **número de sección en el nombre** (el curso 14 tiene tres tabs "Práctica 💻").
+- **No-goal explícito**: NO se toca el nombre ni la presentación del mensaje de WhatsApp (sigue verbatim, RN-EXT-05).
+- **Riesgo operativo**: `cycle.py:56` (`if sent or dry_run:`) marca estado igual que un envío real — **la verificación en vivo no debe usar `--dry-run` en producción**.
+- **Dependencias**: C-03 (`scrape-parse`), C-04
+- **Governance**: MEDIO
+- **Leer antes**:
+  - `knowledge-base/05_reglas_de_negocio.md` (RN-EXT-01 a RN-EXT-06, RN-GLB-01/02)
+  - `docs/filtros.md` (qué se descarta y cómo queda registrado)
+  - `openspec/changes/visibilidad-y-diagnostico-actividades/proposal.md` (el diagnóstico que originó el change)

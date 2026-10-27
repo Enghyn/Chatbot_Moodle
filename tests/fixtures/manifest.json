@@ -54,5 +54,21 @@
     "tiene_fecha": true,
     "origen": "PROG3A26_ Subir trabajo de UML a Java _ CVT.html",
     "notas": "Detalle assign id=1457 (Com1, exclusion list); activity-dates Apertura/Cierre 25-ago-2026."
+  },
+  "prog3_seccion42_relaciones.html": {
+    "curso": "Programación",
+    "seccion": "Práctica 💻 (sección 42)",
+    "seccion_numero": 42,
+    "tiene_fecha": false,
+    "origen": "prog3_seccion42_práctica_Relaciones_y_Estado.html",
+    "notas": "Vista de la sección 42 'Relaciones y Estado' del curso 14. Único li.activity-wrapper: assign id=1833 con id=\"module-1833\" data-id=\"1833\" (fuente autoritativa del cm). Nombre con número de sección porque el curso 14 tiene tres tabs 'Práctica 💻' (31 FastAPI, 36 SQLModel, 42 Relaciones y Estado)."
+  },
+  "assign_libreria_1833.html": {
+    "curso": "Programación",
+    "seccion": "Práctica 💻 (sección 42)",
+    "seccion_numero": 42,
+    "tiene_fecha": true,
+    "origen": "PROG3A26_ Entrega TP Libreria Backend _ CVT.html",
+    "notas": "Detalle assign cm 1833; div[data-region=activity-dates] con Apertura: 15 oct 2026 00:00 y Cierre: 18 oct 2026 23:59. En su feed de actividad reciente aparecen los mod/resource cm 1834/1835 de la misma unidad, que no tienen activity-dates."
   }
 }
