@@ -278,7 +278,7 @@ Paso │ Agente A (Extracción)      │ Agente B (Lógica dominio)       │ Ag
 ## FASE 5 — Post-go-live: visibilidad y diagnóstico
 
 ### [C-11] `visibilidad-y-diagnostico-actividades`
-- **Estado**: `[ ]` implementado (en `/opsx:apply`, pendiente archivar)
+- **Estado**: `[x]` archivado 2026-10-28 → `openspec/changes/archive/2026-10-28-visibilidad-y-diagnostico-actividades/` — aportó identidad de actividad por cmid (nunca el `id` del curso), descarte diagnosticable con techo de ruido y resumen de cierre de corrida en el log; D4 (`mod/resource`) retirada.
 - **Origen**: el aviso reportado como faltante (cm `1833`) resultó ser un **falso positivo** — el bot sí notificó. El diagnóstico con ejecución real contra el HTML real lo cerró. De ahí quedan 3 causas raíz reales, todas de observabilidad/identidad.
 - **Scope**:
   - **D1 — Identidad**: el cmid sale de la fuente autoritativa del DOM (`data-id` / `id="module-N"` → `mod/*/view.php?id=` → ancla `#module-N` → descarte `sin_id`). **Nunca** del `id` de `course/view.php`, que es el del curso (bug: registraba una actividad espuria con `id="14"`).
