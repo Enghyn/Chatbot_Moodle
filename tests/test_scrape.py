@@ -1,10 +1,11 @@
 """Pipeline scrape: secciones via indice -> actividades -> detalle con fecha."""
 
+import ast
 import logging
 from datetime import datetime
 from pathlib import Path
 
-from bot_moodle.scrape import collect_candidates
+from bot_moodle.scrape import _RegistroDescartes, collect_candidates
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -152,15 +153,15 @@ def test_los_motivos_de_descarte_son_distinguibles(caplog):
     assert motivos == {"sin_id", "sin_fecha"}
 
 
-def _seccion_60_sin_fecha(n=60):
+def _seccion_60_sin_fecha(n=60, base=9000):
     """Vista de seccion sintetica: n activities con identidad pero sin fecha.
 
     El detalle servido (`assign_bd2_tp_u4_56812.html`) no trae activity-dates,
     asi que las n actividades se descartan con motivo `sin_fecha`."""
     wrappers = "".join(
-        f'<li class="activity-wrapper assign modtype_assign" id="module-{9000+i}" data-id="{9000+i}">'
+        f'<li class="activity-wrapper assign modtype_assign" id="module-{base+i}" data-id="{base+i}">'
         f'<div data-activityname="Entrega {i}"></div>'
-        f'<a href="https://cv/mod/assign/view.php?id={9000+i}">ir</a></li>'
+        f'<a href="https://cv/mod/assign/view.php?id={base+i}">ir</a></li>'
         for i in range(n)
     )
     return f"<html><body><ul>{wrappers}</ul></body></html>"
@@ -334,4 +335,171 @@ def test_bajo_el_umbral_el_cierre_no_lleva_el_campo_de_truncamiento(caplog):
     m = [r.getMessage() for r in caplog.records if "corrida:" in r.getMessage()][0]
     assert "descartes_por_motivo={'sin_fecha': 3, 'sin_id': 2}" in m
     assert "descartes_detalle_omitido" not in m, f"bajo el umbral no hay nada omitido: {m}"
+
+
+# --- Techo por curso y desglose por curso (change descartes-por-curso) ---
+
+
+class _MultiCursoSession:
+    """Sirve una vista de seccion distinta por curso; el detalle no trae fechas."""
+
+    def __init__(self, secciones, detail):
+        self._secciones = secciones
+        self._detail = detail
+
+    def get(self, url, timeout=20):
+        if "mod/" in url:
+            return _Resp(self._detail)
+        course_id = url.split("id=")[1].split("&")[0]
+        return _Resp(self._secciones[course_id])
+
+
+def _curso(campus, course_id, nombre=""):
+    return {"campus": campus, "course_id": course_id, "course": nombre,
+            "base_url": "https://cv",
+            "sections": [{"index": 40, "title": "Práctica 💻"}]}
+
+
+def _cierre(caplog):
+    cierres = [r.getMessage() for r in caplog.records if "corrida:" in r.getMessage()]
+    assert len(cierres) == 1, f"un unico cierre por corrida: {cierres}"
+    return cierres[0]
+
+
+def _campo_hasta_duracion(linea, nombre):
+    assert f"{nombre}=" in linea, f"el cierre no trae {nombre}=: {linea}"
+    return linea.split(f"{nombre}=")[1].split(" duracion_s=")[0]
+
+
+def _por_curso(caplog):
+    return ast.literal_eval(_campo_hasta_duracion(_cierre(caplog), "descartes_por_curso"))
+
+
+def test_el_techo_de_detalle_es_por_curso_y_el_ultimo_curso_no_queda_ciego(caplog):
+    """El techo de ruido (D2) es por curso: el ultimo curso no hereda la ceguera."""
+    sesion = _MultiCursoSession(
+        {
+            "743": _seccion_60_sin_fecha(60, base=9100),
+            "723": _seccion_60_sin_fecha(55, base=9200),
+            "14": _seccion_60_sin_fecha(11, base=9300),
+        },
+        _fix("assign_bd2_tp_u4_56812.html"),
+    )
+    with caplog.at_level(logging.INFO):
+        cands = collect_candidates(
+            sessions={"C1": sesion, "C2": sesion},
+            targets=[_curso("C1", "743", "Inglés"),
+                     _curso("C1", "723", "BD2"),
+                     _curso("C2", "14", "Programación")],
+        )
+    assert cands == []
+    detalle = [r.getMessage() for r in _warnings(caplog) if "motivo=sin_fecha" in r.getMessage()]
+    assert len(detalle) == 111, f"50 + 50 + 11 lineas de detalle, no {len(detalle)}"
+    del_14 = [m for m in detalle if m.split("curso=")[1].split()[0] == "14"]
+    assert len(del_14) == 11, f"el ultimo curso no queda ciego: {len(del_14)} lineas"
+
+
+def test_sin_sesion_cuenta_en_su_curso(caplog):
+    """D5: un campus sin sesion deja su curso en el desglose, no lo esconde."""
+    sesion = _MultiCursoSession(
+        {"743": _seccion_60_sin_fecha(1, base=9400),
+         "723": _seccion_60_sin_fecha(1, base=9500)},
+        _fix("assign_bd2_tp_u4_56812.html"),
+    )
+    with caplog.at_level(logging.INFO):
+        collect_candidates(
+            sessions={"C1": sesion},
+            targets=[_curso("C1", "743", "Inglés"),
+                     _curso("C1", "723", "BD2"),
+                     _curso("C2", "14", "Programación")],
+        )
+    por_curso = _por_curso(caplog)
+    assert por_curso["14"] == 1, f"sin_sesion cuenta en su curso: {por_curso}"
+    assert por_curso == {"14": 1, "723": 1, "743": 1}, \
+        f"cada descarte queda en su curso, sin atribuciones cruzadas: {por_curso}"
+
+
+def test_un_descarte_sin_course_id_usa_la_clave_interrogacion(caplog):
+    """D2: course_id None/""/ausente se contabiliza bajo '?' y no se inventa un id."""
+    detail = _fix("assign_bd2_tp_u4_56812.html")
+    for course_id in (None, ""):
+        caplog.clear()
+        sesion = _MultiCursoSession({str(course_id): _seccion_60_sin_fecha(1)}, detail)
+        with caplog.at_level(logging.INFO):
+            collect_candidates(sessions={"C2": sesion},
+                               targets=[_curso("C2", course_id)])
+        por_curso = _por_curso(caplog)
+        assert por_curso == {"?": 1}, f"course_id={course_id!r} -> clave '?': {por_curso}"
+
+    registro = _RegistroDescartes()
+    registro.registrar("sin_sesion")  # sin course_id: default ""
+    assert dict(registro.por_curso) == {"?": 1}, "course_id ausente -> clave '?'"
+
+
+def test_el_conteo_por_curso_cuadra_con_el_total_de_descartes():
+    """D3: sum(por_curso) == total, para que motivo y curso no puedan divergir."""
+    registro = _RegistroDescartes()
+    for course_id, n in (("743", 60), ("723", 55), ("14", 11), (None, 2)):
+        for _ in range(n):
+            registro.registrar("sin_fecha", course_id=course_id)
+    assert registro.total == 128
+    assert registro.total == sum(registro.conteo.values())
+    assert sum(registro.por_curso.values()) == registro.total
+
+
+def test_el_cierre_incluye_descartes_por_curso_con_claves_ordenadas(caplog):
+    """D4: mismo conjunto de descartes -> mismo campo, sin importar el orden de targets."""
+    detail = _fix("assign_bd2_tp_u4_56812.html")
+    sesion = _MultiCursoSession(
+        {"743": _seccion_60_sin_fecha(3, base=9600),
+         "723": _seccion_60_sin_fecha(2, base=9700),
+         "14": _seccion_60_sin_fecha(1, base=9800)},
+        detail,
+    )
+    orden = [_curso("C1", "743", "Inglés"), _curso("C1", "723", "BD2"),
+             _curso("C2", "14", "Programación")]
+    subcadenas = []
+    for targets in (orden, list(reversed(orden))):
+        caplog.clear()
+        with caplog.at_level(logging.INFO):
+            collect_candidates(sessions={"C1": sesion, "C2": sesion}, targets=targets)
+        subcadenas.append(_campo_hasta_duracion(_cierre(caplog), "descartes_por_curso"))
+    assert subcadenas[0] == subcadenas[1], \
+        f"el orden de targets no debe cambiar el cierre: {subcadenas}"
+    assert subcadenas[0] == "{'14': 1, '723': 2, '743': 3}", \
+        f"claves de curso ordenadas de forma determinista: {subcadenas[0]}"
+
+
+def test_el_detalle_omitido_es_la_suma_de_los_excedentes_por_curso(caplog):
+    """D3: 60/55/11 con umbral 50 -> 10 + 5 + 0 = 15, no 126."""
+    sesion = _MultiCursoSession(
+        {"743": _seccion_60_sin_fecha(55, base=9200),
+         "723": _seccion_60_sin_fecha(60, base=9100),
+         "14": _seccion_60_sin_fecha(11, base=9300)},
+        _fix("assign_bd2_tp_u4_56812.html"),
+    )
+    with caplog.at_level(logging.INFO):
+        collect_candidates(
+            sessions={"C1": sesion, "C2": sesion},
+            targets=[_curso("C1", "743", "Inglés"), _curso("C1", "723", "BD2"),
+                     _curso("C2", "14", "Programación")],
+        )
+    cierre = _cierre(caplog)
+    assert "descartes_detalle_omitido=15" in cierre, \
+        f"suma de excedentes por curso (10 + 5 + 0): {cierre}"
+
+
+def test_el_cierre_sin_descartes_muestra_por_curso_vacio_y_sin_omitido(caplog):
+    """D6: el campo por curso se emite siempre, tambien vacio; sin omitido si no hay corte."""
+    with caplog.at_level(logging.INFO):
+        cands = collect_candidates(
+            sessions={"C2": _FakeSession()},
+            targets=[{"campus": "C2", "course_id": "14", "course": "Programación",
+                      "base_url": "https://cv",
+                      "sections": [{"index": 2, "title": "Práctica 💻"}]}],
+        )
+    assert len(cands) == 1
+    cierre = _cierre(caplog)
+    assert "descartes_por_curso={}" in cierre, f"campo siempre presente: {cierre}"
+    assert "descartes_detalle_omitido" not in cierre, f"sin truncamiento, sin campo: {cierre}"
 

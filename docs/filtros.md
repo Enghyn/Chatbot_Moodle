@@ -35,9 +35,14 @@ Motivos: `sin_fecha` (sin cierre parseable), `sin_id` (sin identidad determinabl
 Nunca se loguean cookies, `MoodleSession`, `logintoken`, `sesskey`, usuario ni
 password: solo el mismo conjunto de datos que ya viaja en el mensaje.
 
-Si una corrida supera **50 descartes**, el detalle uno por uno se sustituye por
-un resumen agregado con el conteo por motivo (si no, el log se inunda de ruido
-conocido).
+Si un **curso** supera **50 descartes**, el detalle uno por uno de ese curso se
+corta ahí: sus descartes restantes sólo se cuentan (si no, el log se inunda de
+ruido conocido). El techo es **por curso y no por corrida**: así el ruido de un
+curso no deja ciego al siguiente, sin importar el orden en que se recorren los
+targets. Una corrida con 3 cursos puede emitir hasta ~150 líneas de detalle.
+
+Nunca se omitió nada en silencio: lo que no salió como línea de detalle aparece
+en el desglose del cierre.
 
 ## Resumen de cierre de corrida
 
@@ -46,8 +51,28 @@ en producción para 3 cursos × ~44 secciones):
 
 ```
 corrida: secciones=44 actividades=57 candidatas=6
-         descartes_por_motivo={'sin_fecha': 5, 'sin_id': 1} duracion_s=93.4
+         descartes_por_motivo={'sin_fecha': 5, 'sin_id': 1}
+         descartes_por_curso={'14': 3, '723': 2, '743': 1} duracion_s=93.4
 ```
 
-Por debajo del umbral de descartes es `INFO`; por encima sube a `WARNING` porque
-el detalle uno por uno fue omitido.
+(En el log es una sola línea; acá se muestra partida por ancho.)
+
+- `descartes_por_motivo` — cuántos descartes hubo de cada motivo en la corrida.
+- `descartes_por_curso` — cuántos descartes hubo en cada curso. Es el campo que
+  muestra el desbalance de un vistazo: un curso entero sin sesión, o con mucho
+  ruido, se ve acá aunque su detalle se haya cortado.
+  - Las claves salen **ordenadas** de forma determinista (orden lexicográfico de
+    los ids como texto: `'14'`, `'723'`, `'743'`). Mismo conjunto de descartes ⇒
+    misma línea, byte a byte, sin importar el orden de recorrido.
+  - La clave `'?'` significa **curso desconocido**: el descarte llegó sin
+    `course_id` (ausente o vacío). Nunca se inventa un id de curso para tapar el
+    hueco.
+  - El campo se emite siempre, también vacío (`{}`).
+- `duracion_s` — duración real de la corrida, parseable como número.
+- `descartes_detalle_omitido=N` — sólo aparece si hubo truncamiento, y es la
+  **suma de los excedentes por curso**, no el total menos el umbral. Con 60
+  descartes en `723`, 55 en `743` y 11 en `14`: `(60−50) + (55−50) + 0 = 15`.
+
+El resumen es siempre `INFO`: es información operativa, no una anomalía. El
+`WARNING` queda reservado a los descartes individuales, y no hay un warning
+aparte "por resumen agregado" (esa duplicación se retiró).

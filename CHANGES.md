@@ -33,6 +33,7 @@ C-01 foundation-setup
                           └── C-09 cycle-scheduler      ← + C-05 + C-06 + C-07 + C-08
                                 └── C-10 deploy-go-live
                                        └── C-11 visibilidad-y-diagnostico-actividades
+                                              └── C-12 descartes-por-curso
 ```
 
 ### Paralelismo por fase
@@ -294,3 +295,22 @@ Paso │ Agente A (Extracción)      │ Agente B (Lógica dominio)       │ Ag
   - `knowledge-base/05_reglas_de_negocio.md` (RN-EXT-01 a RN-EXT-06, RN-GLB-01/02)
   - `docs/filtros.md` (qué se descarta y cómo queda registrado)
   - `openspec/changes/visibilidad-y-diagnostico-actividades/proposal.md` (el diagnóstico que originó el change)
+
+### [C-12] `descartes-por-curso`
+- **Estado**: `[ ]` implementado 2026-10-28 — suite en verde (153 tests); pendiente la verificación viva (4.3) y el archivo.
+- **Origen**: la corrida real del **2026-10-27 20:00** mostró el techo de detalle de D2/C-11 fallando justo en el curso que lo motivó: `descartes_por_motivo={'sin_fecha': 148, 'sin_id': 113}` con 261 descartes en 3 cursos, y las 50 líneas de detalle consumidas por los dos primeros cursos (Inglés `743`, BD2 `723`). **El curso `14` (Programación) no emitió ni una línea de detalle** — el único contador era global, así que el primer curso agotaba el presupuesto de toda la corrida.
+- **Scope**:
+  - **Techo por curso**: `_RegistroDescartes` gana un contador `por_curso` y el corte del detalle se evalúa contra el contador **del curso del descarte** (`DESCARTES_UMBRAL` = 50 por curso, no por corrida). Costo aceptado: una corrida de 3 cursos puede emitir hasta ~150 líneas de detalle en vez de 50.
+  - **Desglose en el cierre**: la línea única de `INFO` suma `descartes_por_curso={'14': 11, '723': 130, '743': 120}` entre `descartes_por_motivo` y `duracion_s`, con claves ordenadas (determinismo byte a byte, independiente del orden de `targets`).
+  - **`descartes_detalle_omitido` por excedentes**: pasa de `total − umbral` global a `Σ max(0, n_curso − umbral)`. Con 60/55/11 descartes por curso y umbral 50: `10 + 5 + 0 = 15`, no `126`.
+  - **Clave `'?'`** para descartes sin `course_id` (ausente o vacío): nunca se inventa un id de curso (regla dura 2).
+  - `sin_sesion` cuenta en el curso de su target: si un campus entero se queda sin sesión, el cierre muestra ese hueco.
+  - Docs: `docs/filtros.md` (techo por curso, campo nuevo, clave `'?'`, semántica del omitido). Knowledge base sin cambios: RN-EXT-02 describe el contrato, no el alcance del techo.
+- **No-goals**: no cambia qué se descarta ni los motivos (`sin_fecha`, `sin_id`, `detalle_fallo`, `seccion_fallo`, `sin_sesion`); no toca el flujo de notificación ni `estado.json`; no toca `activities.py`, `dates.py`, `filters.py`, `formatting.py`, `grouping.py`, `sender.py` ni `cycle.py`; sin desglose por campus ni por sección (descartado explícitamente).
+- **Riesgo operativo**: el volumen de log sube hasta ~3× el detalle actual por corrida (acotado por `50 × n_cursos`). La verificación en vivo usa la línea de cierre en la pestaña Logs; **no usar `--dry-run` en producción** (`cycle.py:56` marca estado igual que un envío real).
+- **Dependencias**: C-11 (`visibilidad-y-diagnostico-actividades`, archivado)
+- **Governance**: MEDIO
+- **Leer antes**:
+  - `docs/filtros.md` (techo de detalle por curso, campo `descartes_por_curso`, clave `'?'`)
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-EXT-02 (el contrato de descarte registrado, que no cambia)
+  - `openspec/changes/descartes-por-curso/design.md` §D1–D7 (alternativas descartadas: techo global, sin techo, umbral más alto, por campus/sección)

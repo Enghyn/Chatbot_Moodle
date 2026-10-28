@@ -14,25 +14,36 @@ from bot_moodle.sections import resolve_parent_unit
 
 logger = logging.getLogger(__name__)
 
-#: Techo de ruido (D2): pasado este numero de descartes en una corrida, el detalle
-#: uno por uno se sustituye por el resumen agregado del cierre. Hoy hay al menos 3
-#: assigns conocidos sin fecha que inundarian el log.
+#: Techo de ruido (D2): pasado este numero de descartes **por curso**, el detalle
+#: uno por uno de ESE curso se corta y solo se cuenta; el desglose del cierre
+#: sigue informando el total real. Hoy hay al menos 3 assigns conocidos sin
+#: fecha que inundarian el log. El techo es por curso para que el ruido de un
+#: curso no tape el caso interesante de otro (bug de la corrida 2026-10-27).
 DESCARTES_UMBRAL = 50
+
+
+def _clave_curso(course_id: Any) -> str:
+    """Clave canonica de curso (D2): `str(course_id)` o `'?'` si falta el dato.
+
+    `'?'` y nunca un id inventado: la regla dura 2 tambien aplica al log.
+    """
+    return str(course_id) if course_id not in (None, "") else "?"
 
 
 class _RegistroDescartes:
     """Acumula descartes de una corrida y los deja registrables (D2).
 
-    Emite un `warning` por actividad hasta `DESCARTES_UMBRAL`; de ahi en mas solo
-    cuenta, y el cierre emite el resumen agregado. Nunca loguea cookies,
-    `MoodleSession`, `logintoken`, `sesskey`, usuario ni password: solo el mismo
-    conjunto de datos que ya viaja en el mensaje (id, titulo, modtype, curso,
-    seccion, motivo).
+    Emite un `warning` por actividad hasta `DESCARTES_UMBRAL` **por curso**; de
+    ahi en mas solo cuenta, y el cierre emite el resumen agregado (por motivo y
+    por curso). Nunca loguea cookies, `MoodleSession`, `logintoken`, `sesskey`,
+    usuario ni password: solo el mismo conjunto de datos que ya viaja en el
+    mensaje (id, titulo, modtype, curso, seccion, motivo).
     """
 
     def __init__(self, umbral: int = DESCARTES_UMBRAL) -> None:
         self.umbral = umbral
         self.conteo: Counter[str] = Counter()
+        self.por_curso: Counter[str] = Counter()
 
     @property
     def total(self) -> int:
@@ -40,9 +51,11 @@ class _RegistroDescartes:
 
     def registrar(self, motivo: str, *, act: dict | None = None,
                   course_id: Any = "", section_index: Any = "", section_title: str = "") -> None:
+        clave = _clave_curso(course_id)
         self.conteo[motivo] += 1
-        if self.total > self.umbral:
-            return  # ya estamos en modo resumen: no mas detalle uno por uno
+        self.por_curso[clave] += 1
+        if self.por_curso[clave] > self.umbral:
+            return  # este curso agoto su presupuesto: no mas detalle uno por uno
         act = act or {}
         logger.warning(
             "descarte motivo=%s id=%s titulo=%r modtype=%s curso=%s seccion=%s (%s)",
@@ -57,6 +70,15 @@ class _RegistroDescartes:
 
     def resumen_texto(self) -> str:
         return str(dict(sorted(self.conteo.items()))) if self.conteo else "{}"
+
+    def resumen_por_curso(self) -> str:
+        """D4: dict ordenado y estable; el orden de insercion depende del recorrido."""
+        return str(dict(sorted(self.por_curso.items()))) if self.por_curso else "{}"
+
+    @property
+    def excedente(self) -> int:
+        """D3: descartes que quedaron sin linea de detalle, sumando por curso."""
+        return sum(max(0, n - self.umbral) for n in self.por_curso.values())
 
 
 def section_url(base_url: str, course_id: str, index: int) -> str:
@@ -154,14 +176,15 @@ def _resumen_cierre(*, secciones: int, actividades: int, candidatas: int,
 
     Se interpola con f-string (no con argumentos diferidos) para que no exista
     forma de volver a imprimir un format string crudo. El techo de ruido de D2
-    viaja como campo `descartes_detalle_omitido`, no como logger.warning aparte:
-    el cierre es informacion operativa, y el WARNING queda reservado a los
-    descartes individuales.
+    viaja como campo `descartes_detalle_omitido` (suma de excedentes por curso),
+    no como logger.warning aparte: el cierre es informacion operativa, y el
+    WARNING queda reservado a los descartes individuales.
     """
-    omitido = max(0, descartes.total - descartes.umbral)
+    omitido = descartes.excedente
     linea = (
         f"corrida: secciones={secciones} actividades={actividades} "
         f"candidatas={candidatas} descartes_por_motivo={descartes.resumen_texto()} "
+        f"descartes_por_curso={descartes.resumen_por_curso()} "
         f"duracion_s={duracion_s:.1f}"
     )
     if omitido:
