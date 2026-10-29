@@ -10,3 +10,8 @@ build/
 dist/
 .venv/
 venv/
+
+# HTML crudo bajado del campus (scraping manual, 45 MB). Nunca versionar:
+# contiene sesskey de sesiones reales de Moodle (ver AGENTS.md regla 1).
+# Los fixtures que los tests SÍ usan viven sanitizados en tests/fixtures/.
+archivos_web_scrap/
