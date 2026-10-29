@@ -2,6 +2,7 @@
 
 import ast
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -501,5 +502,51 @@ def test_el_cierre_sin_descartes_muestra_por_curso_vacio_y_sin_omitido(caplog):
     assert len(cands) == 1
     cierre = _cierre(caplog)
     assert "descartes_por_curso={}" in cierre, f"campo siempre presente: {cierre}"
+    assert "descartes_detalle_omitido" not in cierre, f"sin truncamiento, sin campo: {cierre}"
+
+
+# --- D6: estado del estado persistido, siempre el ultimo campo del cierre ---
+
+
+def test_cierre_termina_con_estado_ok(caplog):
+    with caplog.at_level(logging.INFO):
+        collect_candidates(
+            sessions={"C2": _FakeSession()},
+            targets=[{"campus": "C2", "course_id": "14", "course": "Programación",
+                      "base_url": "https://cv",
+                      "sections": [{"index": 2, "title": "Práctica 💻"}]}],
+            estado="ok",
+        )
+    cierre = _cierre(caplog)
+    assert cierre.split()[-1] == "estado=ok", f"estado= es el ultimo campo: {cierre}"
+
+
+def test_cierre_con_estado_ausente_y_detalle_omitido(caplog):
+    """Con truncamiento el orden es ... duracion_s descartes_detalle_omitido estado=."""
+    with caplog.at_level(logging.INFO):
+        collect_candidates(
+            sessions={"C2": _FixturesSession(_seccion_60_sin_fecha(60),
+                                             _fix("assign_bd2_tp_u4_56812.html"))},
+            targets=_target(),
+            estado="ausente",
+        )
+    cierre = _cierre(caplog)
+    assert re.search(r"duracion_s=\d+\.\d+ descartes_detalle_omitido=10 estado=ausente$", cierre), \
+        f"orden y cierre exactos: {cierre}"
+    assert float(cierre.split("duracion_s=")[1].split()[0]) >= 0.0
+
+
+def test_cierre_sin_estado_no_agrega_el_campo(caplog):
+    """Las llamadas directas al scrapeo no cambian de contrato."""
+    with caplog.at_level(logging.INFO):
+        collect_candidates(
+            sessions={"C2": _FakeSession()},
+            targets=[{"campus": "C2", "course_id": "14", "course": "Programación",
+                      "base_url": "https://cv",
+                      "sections": [{"index": 2, "title": "Práctica 💻"}]}],
+        )
+    cierre = _cierre(caplog)
+    assert "estado=" not in cierre, f"sin parametro no se inventa el campo: {cierre}"
+    assert "descartes_por_curso={}" in cierre, f"el resto del cierre queda igual: {cierre}"
     assert "descartes_detalle_omitido" not in cierre, f"sin truncamiento, sin campo: {cierre}"
 

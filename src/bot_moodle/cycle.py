@@ -34,7 +34,8 @@ def run_cycle(
             store.mark_seen(str(aid), now)
     candidates = apply_filters(fetch(), now)
 
-    if now.weekday() == 0:  # lunes: digest (+ vigia integrado)
+    digest = now.weekday() == 0 or store.digest_pendiente
+    if digest:  # lunes, o martes+ si el ultimo digest no salio (D8)
         text = format_digest(candidates, now) if candidates else format_empty(now)
         kind = "digest"
         notify_kind = "digest"
@@ -53,21 +54,38 @@ def run_cycle(
     if not dry_run:
         result = sender.send_text(text, jid=dest_jid) if dest_jid else sender.send_text(text)
         sent = bool(result.ok)
-    if sent or dry_run:
+
+    if kind == "digest":
+        # D4: el avistaje del lunes se persiste SIEMPRE, con exito o no; si el
+        # envio falla, el martes no hay rafaga de 🆕 (y el contenido no se
+        # pierde: `format_digest` lista todas las candidatas de la ventana).
+        # `cierre_base` no se toca en este avistaje: se sincroniza con el
+        # envio exitoso (P-1), igual que `notificado_digest`.
         for c in candidates:
-            store.mark_seen(str(c["id"]), now, c.get("due"))
-        if kind == "digest":
+            store.mark_seen(str(c["id"]), now)
+        # D8: si el digest no salio, la corrida siguiente lo reintenta entero
+        # (una vez por corrida programada: un solo `send_text`, sin bucle).
+        if sent or dry_run:
+            store.clear_digest_pendiente()
             for c in candidates:
                 store.mark_notified(str(c["id"]), "digest")
                 if c.get("due") is not None:
                     # La fecha actualizada sale en el digest: base sincronizada.
                     store.set_base(str(c["id"]), c["due"])
         else:
-            for aid in new_ids | changed_ids:
-                store.mark_notified(aid, "urgente")
-            by_id = {str(c["id"]): c for c in candidates}
-            for aid in changed_ids:
-                # Single-shot por cambio: base solo tras envío exitoso.
-                if by_id[aid].get("due") is not None:
-                    store.set_base(aid, by_id[aid]["due"])
+            store.mark_digest_pendiente()
+    elif sent or dry_run:
+        # D4: la rama update solo persiste tras `ok=True`. `partition_urgent`
+        # ya dejo vistas las candidatas que no se enviaban; las alertadas de
+        # un envio fallido quedan pendientes para la corrida siguiente, con su
+        # marca 🆕 intacta.
+        for c in candidates:
+            store.mark_seen(str(c["id"]), now, c.get("due"))
+        for aid in new_ids | changed_ids:
+            store.mark_notified(aid, "urgente")
+        by_id = {str(c["id"]): c for c in candidates}
+        for aid in changed_ids:
+            # Single-shot por cambio: base solo tras envío exitoso.
+            if by_id[aid].get("due") is not None:
+                store.set_base(aid, by_id[aid]["due"])
     return {"sent": sent, "kind": kind, "text": text}

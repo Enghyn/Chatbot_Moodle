@@ -28,6 +28,7 @@ Corrida (1) ——< Entrega vista (N)
 - Atributos: `visto` (timestamp primer avistaje), `notificado_urgente` (bool), `notificado_digest` (bool).
 - Relaciones: 1 a 1 con Entrega.
 - Constraints: una urgente se alerta una sola vez (`notificado_urgente` single-shot).
+- Clave reservada `__meta__` (hermana de los registros, nunca un `assign_id`): hoy contiene `digest_pendiente` (bool), el digest cuyo envío falló y que la corrida siguiente reintenta completo (RN-URG-06).
 
 ### Corrida
 - Atributos: `fecha_hora`, `tipo` (digest lunes 8:00 | vigía 8:00/20:00), `campus_ok` (lista), `campus_fallido` (lista).

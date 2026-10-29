@@ -34,6 +34,7 @@ C-01 foundation-setup
                                 └── C-10 deploy-go-live
                                        └── C-11 visibilidad-y-diagnostico-actividades
                                               └── C-12 descartes-por-curso
+                                                    └── C-13 estado-fallar-en-claro
 ```
 
 ### Paralelismo por fase
@@ -314,3 +315,24 @@ Paso │ Agente A (Extracción)      │ Agente B (Lógica dominio)       │ Ag
   - `docs/filtros.md` (techo de detalle por curso, campo `descartes_por_curso`, clave `'?'`)
   - `knowledge-base/05_reglas_de_negocio.md` §RN-EXT-02 (el contrato de descarte registrado, que no cambia)
   - `openspec/changes/archive/2026-10-28-descartes-por-curso/design.md` §D1–D7 (alternativas descartadas: techo global, sin techo, umbral más alto, por campus/sección)
+
+### [C-13] `estado-fallar-en-claro`
+- **Estado**: `[ ]` en vuelo → `openspec/changes/estado-fallar-en-claro/` — implementado y con suite en verde (204 passed, ampliación D8 incluida); pendiente la **verificación viva post-deploy (tarea 6.6, la ejecuta el operador)**.
+- **Origen**: el bot renotificó dos entregas de BD2 (`🆕 NUEVA`) a las 08:00 **y otra vez** a las 20:00 del 2026-10-28. Causa raíz confirmada en producción (`37d5672fab8b`): **`/data` no era un volumen persistente** (`mount | grep /data` → `SIN_MOUNT`), así que cada deploy recreaba el contenedor con `/data` vacío y `state.py` arrancaba con `_data = {}` **sin loguear nada**. No era un bug de deduplicación: con estado sano dos corridas seguidas ya daban `silence`.
+- **Scope**:
+  - **D1 — Carga diagnosticable**: `StateStore` clasifica la carga como `ausente` | `vacio` (`sin_contenido`, `objeto_sin_registros`) | `corrupto` (`json_invalido`, `error_lectura`, `tipo_no_objeto`) | `ok`, lo expone en `store.estado` (sólo lectura, se calcula una vez) y emite **un** `WARNING` de una línea: `estado=<...> ruta=<...> motivo=<...> accion=arranca_con_estado_vacio_puede_renotificar`. **Loguea ruta y motivo, nunca contenido ni secretos.** Cubre además el bug extra: `null`/`[]`/`"texto"` decodificaban y dejaban `_data` corrupto (`is_new` reventaba con `TypeError` en `null`).
+  - **D2/D3 — Avistaje ≠ notificación**: `partition_urgent` deja de marcar visto lo que va a enviar; lo que no se envía (fuera del margen de 7 días, migración sin base) se sigue marcando visto de inmediato. Un envío fallido se reintenta en la corrida siguiente **con su marca `🆕 NUEVA` intacta**.
+  - **D4 — Orden de persistencia**: rama digest → `mark_seen` siempre, `notificado_digest`/`cierre_base` sólo tras `ok=True`; rama update → todo lo de notificación sólo tras `ok=True`. `--dry-run` se mantiene equivalente a un envío exitoso.
+  - **D5 — Temporal único**: `.tmp` pasa de nombre fijo a `estado.json.<pid>.<uuid4().hex>.tmp`, con limpieza del temporal propio si la publicación falla (nunca del ajeno).
+  - **D6 — `estado=` en el cierre**: `collect_candidates(..., estado=store.estado)` agrega `estado=` como **último campo** de la línea `corrida:`; sin el parámetro el campo se omite (contrato de las llamadas directas intacto).
+  - **D8 — Reintento del digest pendiente** (ampliación del mismo change): si el envío del digest falla, se enciende `__meta__.digest_pendiente` en `estado.json` (clave reservada, no colisiona con un `assign id` numérico) y la corrida siguiente lo reintenta **completo** como digest (`now.weekday() == 0 or store.digest_pendiente`), con el mismo texto de `format_digest` y sin `🆕`, en un único envío; el flag se limpia con `ok=True` (o `--dry-run`) y la clave se borra del archivo. Cierra el silencio de hasta 7 días que dejaba el avistaje incondicional del digest fallido.
+  - Docs: `docs/estado.md` (§Carga y diagnóstico, §`__meta__` clave reservada, §Avistaje vs notificación, §Orden de persistencia por corrida), `docs/filtros.md` (§resumen de cierre), `knowledge-base/05_reglas_de_negocio.md` (RN-URG-01/03/04 actualizadas + RN-URG-05 y RN-URG-06 nuevas).
+- **No-goals**: **no monta el volumen** (acción de infraestructura del operador, ver abajo); no cambia el formato ni el texto del mensaje de WhatsApp; no toca `formatting.py`, `grouping.py`, `filters.py`, `comision.py`, `sender.py`, `dates.py` ni `sections.py`; no agrega base de datos, locking entre procesos ni reloj de expiración; no toca el margen de 7 días, la ventana de 14 días ni los filtros; no migra `estado.json`.
+- **Acción de infraestructura pendiente del operador (FUERA de este change)**: montar un **volumen persistente en `/data`** en EasyPanel. Un `Dockerfile` no puede crear un volumen: sin el mount, cada deploy seguirá perdiendo el estado y el 🆕 será legítimo desde el punto de vista del bot; lo que cambia es que la línea de cierre dirá `estado=ausente` y el log lo explicará en segundos.
+- **Riesgo operativo / verificación**: en la pestaña Logs la primera corrida post-deploy debe terminar en `estado=ausente` (sin volumen) o `estado=ok` (con volumen), y no debe repetir `🆕 NUEVA` para las mismas entregas si el volumen está montado. Si un digest no sale, la corrida siguiente debe volver a mandar el **digest** (encabezado `Comisión 4 - Vencimientos`, sin `🆕`), no una actualización. **La verificación en vivo NO usa `--dry-run` en producción** (persiste igual que un envío exitoso).
+- **Dependencias**: C-12 (`descartes-por-curso`, archivado)
+- **Governance**: MEDIO
+- **Leer antes**:
+  - `docs/estado.md` (clasificación de la carga, clave reservada `__meta__` y reintento del digest, avistaje vs notificación, orden de persistencia)
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-URG-01, RN-URG-03, RN-URG-05, RN-URG-06
+  - `openspec/changes/estado-fallar-en-claro/design.md` §D1–D8 (con §D4/P-1, límite conocido del avistaje en la rama update fallida, y §D8, reintento del digest pendiente)

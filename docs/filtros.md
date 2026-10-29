@@ -52,7 +52,7 @@ en producción para 3 cursos × ~44 secciones):
 ```
 corrida: secciones=44 actividades=57 candidatas=6
          descartes_por_motivo={'sin_fecha': 5, 'sin_id': 1}
-         descartes_por_curso={'14': 3, '723': 2, '743': 1} duracion_s=93.4
+         descartes_por_curso={'14': 3, '723': 2, '743': 1} duracion_s=93.4 estado=ok
 ```
 
 (En el log es una sola línea; acá se muestra partida por ancho.)
@@ -72,6 +72,20 @@ corrida: secciones=44 actividades=57 candidatas=6
 - `descartes_detalle_omitido=N` — sólo aparece si hubo truncamiento, y es la
   **suma de los excedentes por curso**, no el total menos el umbral. Con 60
   descartes en `723`, 55 en `743` y 11 en `14`: `(60−50) + (55−50) + 0 = 15`.
+- `estado=` — **siempre el último campo de la línea**, para que un parser por
+  regex no dependa de la presencia de `descartes_detalle_omitido`. Es la
+  clasificación con la que se cargó `estado.json` en esa corrida:
+  `ausente` (el archivo no existe), `vacio` (existe pero está en blanco o sin
+  registros), `corrupto` (no decodifica o no es un objeto) u `ok` (se leyó
+  bien). Ver `docs/estado.md` §Carga y diagnóstico.
+
+  Cómo leerlo en EasyPanel: abrir la pestaña **Logs** del servicio y buscar
+  `corrida:`; el último token de la línea dice si la corrida arrancó con estado
+  sano. `estado=ausente`, `estado=vacio` o `estado=corrupto` significa que esa
+  corrida **puede renotificar** entregas ya avisadas (el bot envía igual:
+  fail-open), y que falta montar el volumen persistente en `/data` (acción del
+  operador, fuera del código). Si el parámetro no se pasa (llamadas directas al
+  scrapeo), el campo se omite y la línea queda como antes.
 
 El resumen es siempre `INFO`: es información operativa, no una anomalía. El
 `WARNING` queda reservado a los descartes individuales, y no hay un warning

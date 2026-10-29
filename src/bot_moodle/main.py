@@ -71,7 +71,7 @@ def tick(dry_run: bool = False, dest_jid: str | None = None) -> dict:
     targets = build_targets(sessions, cfg)
     now = datetime.now()
     return run_cycle(
-        fetch=lambda: collect_candidates(sessions, targets),
+        fetch=lambda: collect_candidates(sessions, targets, estado=store.estado),
         now=now,
         store=store,
         sender=sender,

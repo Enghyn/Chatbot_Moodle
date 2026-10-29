@@ -85,7 +85,8 @@ def section_url(base_url: str, course_id: str, index: int) -> str:
     return f"{base_url.rstrip('/')}/course/view.php?id={course_id}&section={index}"
 
 
-def collect_candidates(sessions: dict[str, Any], targets: list[dict], timeout: int = 20) -> list[dict]:
+def collect_candidates(sessions: dict[str, Any], targets: list[dict], timeout: int = 20,
+                       estado: str | None = None) -> list[dict]:
     """Recorre las secciones indicadas de cada curso y devuelve candidatas con fecha.
 
     targets: [{campus, course_id, course, base_url, sections: [{index, title}]}].
@@ -98,6 +99,11 @@ def collect_candidates(sessions: dict[str, Any], targets: list[dict], timeout: i
     descarte ni un alza de duracion son detectables en el log de EasyPanel.
     `unidad_padre` se deriva de `units` (tabs de unidad del curso, opcional):
     sin units -> None y la agrupacion usa el comportamiento anterior.
+
+    `estado` (D6): clasificacion con la que se cargo el estado persistido
+    (`ausente|vacio|corrupto|ok`), que `main.tick` toma de `store.estado` para
+    que el cierre diga si la corrida arranco con estado sano. Opcional: sin el
+    parametro el campo se omite y la linea queda como antes.
     """
     candidates: list[dict] = []
     descartes = _RegistroDescartes()
@@ -166,12 +172,14 @@ def collect_candidates(sessions: dict[str, Any], targets: list[dict], timeout: i
         candidatas=len(candidates),
         descartes=descartes,
         duracion_s=time.monotonic() - inicio,
+        estado=estado,
     )
     return candidates
 
 
 def _resumen_cierre(*, secciones: int, actividades: int, candidatas: int,
-                    descartes: _RegistroDescartes, duracion_s: float) -> None:
+                    descartes: _RegistroDescartes, duracion_s: float,
+                    estado: str | None = None) -> None:
     """D3: un unico resumen de cierre por corrida, siempre en INFO.
 
     Se interpola con f-string (no con argumentos diferidos) para que no exista
@@ -179,6 +187,10 @@ def _resumen_cierre(*, secciones: int, actividades: int, candidatas: int,
     viaja como campo `descartes_detalle_omitido` (suma de excedentes por curso),
     no como logger.warning aparte: el cierre es informacion operativa, y el
     WARNING queda reservado a los descartes individuales.
+
+    D6: `estado=` (`ausente|vacio|corrupto|ok`) es **siempre el ultimo campo**,
+    para que un parser por regex no dependa de la presencia del truncamiento.
+    Si no se pasa `estado`, la linea queda exactamente como antes.
     """
     omitido = descartes.excedente
     linea = (
@@ -189,6 +201,8 @@ def _resumen_cierre(*, secciones: int, actividades: int, candidatas: int,
     )
     if omitido:
         linea += f" descartes_detalle_omitido={omitido}"
+    if estado is not None:
+        linea += f" estado={estado}"
     logger.info(linea)
 
 
