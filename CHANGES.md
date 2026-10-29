@@ -297,7 +297,7 @@ Paso │ Agente A (Extracción)      │ Agente B (Lógica dominio)       │ Ag
   - `openspec/changes/visibilidad-y-diagnostico-actividades/proposal.md` (el diagnóstico que originó el change)
 
 ### [C-12] `descartes-por-curso`
-- **Estado**: `[ ]` implementado 2026-10-28 — suite en verde (153 tests); pendiente la verificación viva (4.3) y el archivo.
+- **Estado**: `[x]` archivado 2026-10-28 → `openspec/changes/archive/2026-10-28-descartes-por-curso/` — aportó el techo de detalle de descartes **por curso** (el curso `14` dejó de quedar ciego) y el desglose `descartes_por_curso` en la línea única de cierre, con `descartes_detalle_omitido` recalculado como suma de excedentes por curso; verificado en vivo en la corrida real del 2026-10-28 20:00.
 - **Origen**: la corrida real del **2026-10-27 20:00** mostró el techo de detalle de D2/C-11 fallando justo en el curso que lo motivó: `descartes_por_motivo={'sin_fecha': 148, 'sin_id': 113}` con 261 descartes en 3 cursos, y las 50 líneas de detalle consumidas por los dos primeros cursos (Inglés `743`, BD2 `723`). **El curso `14` (Programación) no emitió ni una línea de detalle** — el único contador era global, así que el primer curso agotaba el presupuesto de toda la corrida.
 - **Scope**:
   - **Techo por curso**: `_RegistroDescartes` gana un contador `por_curso` y el corte del detalle se evalúa contra el contador **del curso del descarte** (`DESCARTES_UMBRAL` = 50 por curso, no por corrida). Costo aceptado: una corrida de 3 cursos puede emitir hasta ~150 líneas de detalle en vez de 50.
@@ -313,4 +313,4 @@ Paso │ Agente A (Extracción)      │ Agente B (Lógica dominio)       │ Ag
 - **Leer antes**:
   - `docs/filtros.md` (techo de detalle por curso, campo `descartes_por_curso`, clave `'?'`)
   - `knowledge-base/05_reglas_de_negocio.md` §RN-EXT-02 (el contrato de descarte registrado, que no cambia)
-  - `openspec/changes/descartes-por-curso/design.md` §D1–D7 (alternativas descartadas: techo global, sin techo, umbral más alto, por campus/sección)
+  - `openspec/changes/archive/2026-10-28-descartes-por-curso/design.md` §D1–D7 (alternativas descartadas: techo global, sin techo, umbral más alto, por campus/sección)
