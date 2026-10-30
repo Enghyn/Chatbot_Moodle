@@ -48,7 +48,7 @@ El sistema SHALL identificar cada actividad por el identificador de su course mo
 - **THEN** la clave persistida en el estado es ese cmid y no el identificador del curso, de modo que el id de un curso no colisiona con el id de una actividad de otro curso
 
 ### Requirement: Solo entregas con fecha parseable
-El sistema SHALL considerar únicamente actividades cuyo `div[data-region=activity-dates]` contenga una fecha de cierre reconocible; las que no la tengan SHALL descartarse, pero el descarte SHALL quedar registrado en un log de nivel warning con el identificador, el título, el tipo de módulo, el curso, la sección y el motivo del descarte, sin exponer secretos. El descarte SHALL ser explícito y diagnosticable, nunca silencioso. El techo de detalle SHALL aplicarse **por curso**: cada curso emite hasta 50 warnings de detalle y los descartes que exceden ese techo sólo se cuentan. Cada corrida SHALL cerrar con un único resumen con las secciones recorridas, las actividades encontradas, las candidatas, los descartes por motivo, los descartes por curso y la duración.
+El sistema SHALL considerar únicamente actividades cuyo `div[data-region=activity-dates]` contenga una fecha de cierre reconocible; las que no la tengan SHALL descartarse, pero el descarte SHALL quedar registrado en un log de nivel warning con el identificador, el título, el tipo de módulo, el curso, la sección y el motivo del descarte, sin exponer secretos. El descarte SHALL ser explícito y diagnosticable, nunca silencioso. El techo de detalle SHALL aplicarse **por curso**: cada curso emite hasta 50 warnings de detalle y los descartes que exceden ese techo sólo se cuentan. Cada corrida SHALL cerrar con un único resumen con las secciones recorridas, las actividades encontradas, las candidatas, los descartes por motivo, los descartes por curso, la duración y el estado con el que se cargó el estado persistido (`estado=ausente|vacio|corrupto|ok`).
 
 #### Scenario: Actividad sin fecha
 - **WHEN** una entrega no tiene `activity-dates` con cierre (ej. TP Unidad 4 BD2, FastApi)
@@ -64,7 +64,11 @@ El sistema SHALL considerar únicamente actividades cuyo `div[data-region=activi
 
 #### Scenario: Resumen de corrida
 - **WHEN** termina el recorrido de secciones y detalles de una corrida
-- **THEN** el sistema emite un único resumen en nivel info, interpolado en una sola línea, con `secciones=`, `actividades=`, `candidatas=`, `descartes_por_motivo={'sin_fecha': 148, 'sin_id': 113}`, `descartes_por_curso={'14': 11, '723': 130, '743': 120}`, `duracion_s=98.6` y —sólo si hubo truncamiento— `descartes_detalle_omitido=N`; las claves de curso salen ordenadas de forma determinista, y `duracion_s=` se parsea como número real (`float(m.split("duracion_s=")[1].split()[0])`)
+- **THEN** el sistema emite un único resumen en nivel info, interpolado en una sola línea, con `secciones=`, `actividades=`, `candidatas=`, `descartes_por_motivo={'sin_fecha': 148, 'sin_id': 113}`, `descartes_por_curso={'14': 11, '723': 130, '743': 120}`, `duracion_s=98.6`, —sólo si hubo truncamiento— `descartes_detalle_omitido=N` y, siempre como último campo de la línea, `estado=`; las claves de curso salen ordenadas de forma determinista, y `duracion_s=` se parsea como número real (`float(m.split("duracion_s=")[1].split()[0])`)
+
+#### Scenario: Estado del estado persistido en el cierre
+- **WHEN** la corrida arrancó con el estado persistido ausente, vacío, corrupto o sano
+- **THEN** la línea de cierre termina en exactamente uno de `estado=ausente`, `estado=vacio`, `estado=corrupto` o `estado=ok`, de modo que la pérdida del estado se lea en el log en segundos, y el mensaje al grupo no cambia
 
 #### Scenario: Descarte sin curso identificable
 - **WHEN** un descarte llega sin `course_id` (vacío o ausente) porque el target no lo trae

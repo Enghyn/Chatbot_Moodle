@@ -59,7 +59,21 @@
 - [x] 6.3 Confirmar por `git diff --stat` que `formatting.py`, `grouping.py`, `filters.py`, `comision.py`, `sender.py`, `dates.py` y `sections.py` **no** cambiaron (formato y texto del mensaje cerrados; regla dura 8 intacta).
 - [x] 6.4 Actualizar `knowledge-base/05_reglas_de_negocio.md`: RN-URG-01 (avistaje persistido siempre, salvo el subconjunto del envío fallido que queda pendiente de reintento), RN-URG-03 (alerta única = notificación persistida sólo tras envío exitoso) y RN-URG-05 nueva (carga del estado clasificada `ausente|vacio|corrupto|ok`, estado perdido = warning + enviar igual, distinto de RN-GLB-01). Verificar que el texto no contradice `openspec/specs/moodle-urgent-watch/spec.md`.
 - [x] 6.5 Registrar el change en `CHANGES.md` como `C-13` con scope, no-goals, dependencias (C-12) y la **acción de infraestructura pendiente del operador** (volumen persistente en `/data`), marcándola explícitamente como fuera del change.
-- [ ] 6.6 **PENDIENTE — la ejecuta el operador, no el agente**: Verificación en vivo post-deploy (operador, sin `--dry-run` en producción): en la pestaña Logs de EasyPanel, la línea de cierre de la primera corrida tras el deploy termina en `estado=ausente` (sin volumen) o `estado=ok` (con volumen), y ninguna corrida posterior repite `🆕 NUEVA` para las mismas entregas si el volumen está montado. Dejar la evidencia (fecha y hora de la corrida) en este change.
+- [x] 6.6 Verificación en vivo post-deploy (ejecutada por el operador, sin `--dry-run` en producción). **Verificado**: las dos corridas reales del 2026-10-29, con el volumen ya montado en `/data` (`bot-moodle-data`), commit `89e7ef1`.
+  - **08:00 — primera corrida tras el deploy, volumen todavía vacío.** Emitió el warning esperado y el cierre terminó en `estado=ausente`:
+    ```
+    WARNING bot_moodle.state: estado=ausente ruta=/data/estado.json motivo=archivo_inexistente accion=arranca_con_estado_vacio_puede_renotificar
+    INFO bot_moodle.scrape: corrida: secciones=92 actividades=166 candidatas=15 descartes_por_motivo={'sin_fecha': 151, 'sin_id': 114} descartes_por_curso={'14': 143, '723': 110, '743': 12} duracion_s=77.1 descartes_detalle_omitido=153 estado=ausente
+    INFO bot_moodle.sender: enviado a 120363411539138333@g.us (201)
+    ```
+    Es el **pico único** de renotificación que el change declaró como consecuencia inevitable de arrancar sin estado (el anterior se perdió con el contenedor sin volumen). La corrida del 2026-10-29 fue jueves, así que fue la rama **update**, no digest.
+  - **20:00 — misma jornada, 12 h después, con el volumen persistente.** Sin warning de estado y con el cierre en `estado=ok`:
+    ```
+    INFO bot_moodle.scrape: corrida: secciones=92 actividades=166 candidatas=15 descartes_por_motivo={'sin_fecha': 151, 'sin_id': 115} descartes_por_curso={'14': 143, '723': 111, '743': 12} duracion_s=92.1 descartes_detalle_omitido=154 estado=ok
+    ```
+    **No hubo línea `bot_moodle.sender: enviado`**: la corrida devolvió silencio. Las 15 candidatas avistadas a las 08:00 se leyeron como conocidas, con su `cierre_base` sincronizada, y el vigía no renotificó ninguna. **El síntoma reportado no se reprodujo.**
+  - Aritmética del cierre: `143+111+12 = 266 = 151+115` (invariante `Σ por_curso == total`). La diferencia de `+1` en `sin_id` y en el curso `723` respecto de las 08:00 corresponde a una actividad nueva del campus aparecida durante el día (`Unidad 3 - Práctica`, `sin_id`), no a una regresión.
+  - Conclusión: el volumen en `/data` sobrevive al reinicio del proceso y el estado se releyó correctamente entre dos corridas separadas por 12 h. Los cuatro defectos del change quedan cubiertos por tests; la pérdida de estado por deploy queda resuelta en infraestructura y diagnosticable en el log.
 
 ## 7. Reintento del digest pendiente (D8)
 
